@@ -108,4 +108,3 @@ logpath=$home/logs
 logfile=cocker.log
 confpath=$home/conf
 portfile=port.list
-
