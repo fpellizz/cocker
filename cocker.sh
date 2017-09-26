@@ -54,6 +54,8 @@ esac
 
 
 function assign_port(){
+    # richiede una porta che al momento non sia in uso dal sistema e verifica che non sia stata assegnata
+    # a qualche container che al momento non è attivo
     port=$(random_unused_port)
     echo "random generated port: $port"
     echo "used port list (from $confpath/$portfile file)"
@@ -72,6 +74,7 @@ function assign_port(){
 
 
 function random_unused_port() {
+    #sceglie randomicamente una porta su cui comunicare e verifica che non sia già in uso dal sistema 
    (netstat --listening --all --tcp --numeric | 
     sed '1,2d; s/[^[:space:]]*[[:space:]]*[^[:space:]]*[[:space:]]*[^[:space:]]*[[:space:]]*[^[:space:]]*:\([0-9]*\)[[:space:]]*.*/\1/g' |
     sort -n | uniq; seq 1 1000; seq 1 65535
@@ -83,6 +86,18 @@ function parse_dockerfile(){
     # parsa il Dockerfile alla ricerca della parola EXPOSE in modo da conoscere
     # quante e quali porte il container deve esporre
     # restituisce una stringa $ports=5432,8080,8433
+    ports=$(grep EXPOSE $templates_home/$1/Dockerfile)
+    
+    # questa parte va portata fuori nella parte che si occuperà di generare
+    # la stringa di parametri con cui avviare il container
+    
+    ports=${ports:7}
+    IFS=',' read -r -a array <<< "$ports"
+    for element in "${array[@]}"
+        do
+            echo "$element"
+        done
+    
 }
 
 function parse_cockerfile(){
@@ -90,7 +105,92 @@ function parse_cockerfile(){
     # parsa il Cockerfile alla ricerca di eventuali path da condividere 
     # col filesystem e da montare nel container
     # restituisce una stringa $paths=/path:/path/in/container;/path:/path/in/container
+    patti=$(sed -n '/<volumes>/{:a;n;/<volumes>/b;p;ba}' $templates_home/$1/Cockerfile)
+    echo $patti
+}
 
+
+function create_instance_from_template(){
+    # to do
+    # si occupa della creazione dela box che conterrà tutto il necessario a dare vita al container 
+    # partendo da un template, creerà la struttura e i file necessari alla creazione del container.
+    # fondamentalmente farà una copia della cartella del template, che doverbbe contenere:
+    #   cartella "config" per le configurazioni necessarie
+    #   cartella "custom" per eventuali customizzazioni
+    #   cartella "data" in cui saranno montati i volumi che espone il container
+    #   Dockerfile file con cui verrà generato il container
+    #   Cockerfile file con info aggiuntive per la generazione del container, tipo volumi da montare
+    #   read.me  file con le info sul container, da valutare se incorporare le info direttamente nel cockerfile
+    sleep 1
+}
+
+function clone_template(){
+    # to do
+    # si occupa di clonare un template, ovvero fare una copia della cartella del template, prendendo in ingresso il nome del template da clonare e il nome del clone.
+    sleep 1
+}
+
+function list_templates(){
+    # to do
+    # restituisce la lista dei template presenti nel sistema, banalmente un "ls" della cartella templates
+    current_dir=$(pwd)
+    cd ./templates
+    echo
+    for i in $(ls -d */); do echo ${i%%/}; done
+    echo
+    cd $current_dir
+}
+
+function template_info(){
+    # to do
+    # restituisce info dettagliate del template passato come parametro. 
+    # Le informazioni sono contenute nel Cockerfile
+    sed -n '/<template-info>/{:a;n;/<template-info>/b;p;ba}' $templates_home/$1/Cockerfile
+}
+
+function template_structure(){
+    # restituisce la struttura e il contenuto di un template passato come parametro
+    echo
+    echo "Structure of template $1"
+    echo
+    tree --noreport --dirsfirst -C -F --du -h $templates_home/$1 | sed -n '1!p'
+    echo 
+}
+
+function delete_template(){
+    # to do
+    # rimuove un template dal sistema.
+    sleep 1
+}
+
+function backup_template(){
+    # to do
+    # effettua il backup di un template passato come parametro. Crea un archivio tar.gz della cartella del template, e come secondo parametro opzionale
+    # può prendere in ingresso un path dove andare a depositare l'archivio
+    # NON ELIMINA il template.
+    sleep 1
+}
+
+function export_template(){
+    # to do
+    # crea un archivio tar.gz del template passato come parametro in ingresso e lo salva in un percorso passato dall'utente come parametro
+    # fa la stessa cosa di backup_template(), con la differenza che il path per il salvataggio è obbligatorio
+    # NON ELIMINA il template
+    sleep 1
+}
+
+function import_template(){
+    #to do
+    # prende un archivio tar.gz contenente un template (la validazione è demandata all'utente) e lo installa nel sistema,
+    # ossia lo decomprime nella cartella templates.
+    # Dovrebbe verificare se esista nel sistema il template che si sta per importare, ovvero se esiste già una cartella con
+    # lo stesso nome della cartella presente nell'archivio.
+    #
+    # Sarebbe bello prevedere alcuni switch per questa funzione, tipo 
+    # -f per forzare l'installazione, ovvero se è presente già una cartella con lo stesso nome, ne sovrascrive/integra il contenuto
+    # -l per fornire un path locale del file system, dove è presente l'archivio tar.gz
+    # -r per fornire un url da cui il sistema scaricherà l'archivio tar.gz (un market  di template...)
+    sleep 1
 }
 
 function create_container(){
@@ -98,7 +198,30 @@ function create_container(){
     # si occupa della creazione del container, prendendo informazioni dal Dockerfile 
     # per quanto riguarda eventuali porte da eporre 
     # e dal Cockerfile per quanto riguarda cartelle da esporre
+    # inserisce una riga alla fine del Cockerfile <mapped-ports>45564,25670<mapped-ports>
+    # che contiene le porte della macchina host assegnate alle porte esposte dal container
+    # in modo che in fase di rimozione, il sistema le possa rimuovere dal file ./conf/port.list
+    # e renderle nuovamente disponibili
+    sleep 1
 }
+
+function start_container(){
+    # to do 
+    # avvia un dato container, usando le api di docker
+}
+
+function stop_container(){
+    # to do 
+    # ferma un dato container, usando le api di docker
+}
+
+function delete_container(){
+    # to do
+    # rimuove un container, usando le api di docker
+    # deve rimuovere anche le porte random che sono state assegnate
+    # al container stesso, rimuovendole dal file ./conf/port.list
+}
+
 ###############################################################################
 #Variabili
 home=$(dirname $0)
@@ -108,4 +231,4 @@ logpath=$home/logs
 logfile=cocker.log
 confpath=$home/conf
 portfile=port.list
-
+templates_home=/home/fpellizz/Git_repos/cocker/cocker/templates

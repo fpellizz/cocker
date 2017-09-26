@@ -1,0 +1,27 @@
+<volumes>
+<container_home>/data/webapps:/var/lib/tomcat7/webapps
+<volumes>
+<template-info>
+
+Template Info:
+
+Name:       Dummy
+Date:       26/09/2017
+Mantainer:  fpellizz (fabio.pellizzaro@decisyon.com)
+
+Description:
+
+This is a dummy template, only for development purpose.
+Based on tomcat7 application server
+
+*   config folder: contains configuration files to run the application
+*   custom folder: contains customizations files
+*   data folder: contains application data, volumes shared with the OS, tomcat webapps folder in this case
+*   source folder: contains all necessary file to build the container
+*   update folder: contains all the necessary file to update the application
+*   Dockerfile: is the file we will use to build the container 
+*   Cockerfile: is the file that contains this info and some other parameters necessary to properly run the application
+                path to share from container to operative system for example
+
+<template-info>
+
