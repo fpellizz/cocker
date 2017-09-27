@@ -90,7 +90,6 @@ function parse_dockerfile(){
     
     # questa parte va portata fuori nella parte che si occuperà di generare
     # la stringa di parametri con cui avviare il container
-    
     ports=${ports:7}
     IFS=',' read -r -a array <<< "$ports"
     for element in "${array[@]}"
@@ -127,7 +126,14 @@ function create_instance_from_template(){
 function clone_template(){
     # to do
     # si occupa di clonare un template, ovvero fare una copia della cartella del template, prendendo in ingresso il nome del template da clonare e il nome del clone.
-    sleep 1
+    free_space=$(df --output=avail $templates_home | tail -n +2)
+    template_size=$(du -s $templates_home/$1 | cut -d'/' -f1)
+    if [ $free_space -gt $template_size ];
+    then
+        cp -rf $templates_home/$1 $templates_home/$2
+    else
+        echo "Not enough free space"
+    fi
 }
 
 function list_templates(){
@@ -165,10 +171,11 @@ function delete_template(){
 
 function backup_template(){
     # to do
-    # effettua il backup di un template passato come parametro. Crea un archivio tar.gz della cartella del template, e come secondo parametro opzionale
-    # può prendere in ingresso un path dove andare a depositare l'archivio
+    # effettua il backup di un template passato come parametro. Crea un archivio tar.gz della cartella del template
+    # nella cartella backups
     # NON ELIMINA il template.
-    sleep 1
+    tar -zcvf $templates_home/backups/$1.tar.gz $templates_home/$1
+    
 }
 
 function export_template(){
