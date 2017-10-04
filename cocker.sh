@@ -104,14 +104,18 @@ function parse_cockerfile(){
     # parsa il Cockerfile alla ricerca di eventuali path da condividere 
     # col filesystem e da montare nel container
     # restituisce una stringa $paths=/path:/path/in/container;/path:/path/in/container
+    # restituisce una stringa $ports=8080,8443
     patti=$(sed -n '/<volumes>/{:a;n;/<volumes>/b;p;ba}' $templates_home/$1/Cockerfile)
+    ports=$(sed -n '/<ports>/{:a;n;/<ports>/b;p;ba}' $templates_home/$1/Cockerfile)
+
     echo $patti
+    echo $ports
 }
 
 
 function create_instance_from_template(){
     # to do
-    # si occupa della creazione dela box che conterrà tutto il necessario a dare vita al container 
+    # si occupa della creazione della box che conterrà tutto il necessario a dare vita al container 
     # partendo da un template, creerà la struttura e i file necessari alla creazione del container.
     # fondamentalmente farà una copia della cartella del template, che doverbbe contenere:
     #   cartella "config" per le configurazioni necessarie
@@ -120,7 +124,22 @@ function create_instance_from_template(){
     #   Dockerfile file con cui verrà generato il container
     #   Cockerfile file con info aggiuntive per la generazione del container, tipo volumi da montare
     #   read.me  file con le info sul container, da valutare se incorporare le info direttamente nel cockerfile
-    sleep 1
+    
+    # $1 = template name
+    
+    while :
+    do
+        rand=$RANDOM
+        echo $rand
+        DIRECTORY=$boxes_home/$1_$rand
+        if [ ! -d "$DIRECTORY" ]; 
+        then
+            break # se non esiste la directory esco dal ciclo while.
+        fi
+    done
+    mkdir -p $DIRECTORY
+    cp -rf $templates_home/$1/* $DIRECTORY
+    
 }
 
 function clone_template(){
@@ -166,7 +185,7 @@ function template_structure(){
 function delete_template(){
     # to do
     # rimuove un template dal sistema.
-    sleep 1
+    rm -rf $templates_home/$1
 }
 
 function backup_template(){
@@ -183,7 +202,7 @@ function export_template(){
     # crea un archivio tar.gz del template passato come parametro in ingresso e lo salva in un percorso passato dall'utente come parametro
     # fa la stessa cosa di backup_template(), con la differenza che il path per il salvataggio è obbligatorio
     # NON ELIMINA il template
-    sleep 1
+    tar -zcvf $2/$1.tar.gz $templates_home/$1
 }
 
 function import_template(){
@@ -209,17 +228,40 @@ function create_container(){
     # che contiene le porte della macchina host assegnate alle porte esposte dal container
     # in modo che in fase di rimozione, il sistema le possa rimuovere dal file ./conf/port.list
     # e renderle nuovamente disponibili
-    sleep 1
+    # Deve anche salvare nel Cockerfile anche il nome del container, 
+    # per poterlo eventualmente rimuovere
+    # $1 = container name, dato dal nome della box, incluso il random alla fine
+    
+    #genera porte random
+    
+    #genera stringa dei patti
+    
+    #build docker container
+    #sudo docker build . -t stocazzo
+
+    #echo "<ports>$port_list<ports>" >> $boxes_home/$1/Cockerfile 
+    #echo "<container>$container_name<container>" >> $boxes_home/$1/Cockerfile
+    
+    #run docker container
+    #sudo docker run -d --name stafava stocazzo /bin/sleep 300
+
+    
+
+    sleep 1    
 }
 
 function start_container(){
     # to do 
     # avvia un dato container, usando le api di docker
+    sleep 1
+
 }
 
 function stop_container(){
     # to do 
     # ferma un dato container, usando le api di docker
+    sleep 1
+
 }
 
 function delete_container(){
@@ -227,6 +269,8 @@ function delete_container(){
     # rimuove un container, usando le api di docker
     # deve rimuovere anche le porte random che sono state assegnate
     # al container stesso, rimuovendole dal file ./conf/port.list
+    #$1 = container name
+    docker rm -f $1
 }
 
 ###############################################################################
@@ -239,3 +283,9 @@ logfile=cocker.log
 confpath=$home/conf
 portfile=port.list
 templates_home=/home/fpellizz/Git_repos/cocker/cocker/templates
+boxes_home=/tmp
+###############################################################################
+#
+
+#parse_cockerfile template_01
+create_instance_from_template template_01
