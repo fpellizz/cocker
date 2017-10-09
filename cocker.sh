@@ -56,20 +56,22 @@ esac
 function assign_port(){
     # richiede una porta che al momento non sia in uso dal sistema e verifica che non sia stata assegnata
     # a qualche container che al momento non è attivo
+    local port
     port=$(random_unused_port)
-    echo "random generated port: $port"
-    echo "used port list (from $confpath/$portfile file)"
+    #echo "random generated port: $port"
+    #echo "used port list (from $confpath/$portfile file)"
     while read -r line
     do
         used_port="$line"
-        echo "$used_port"
+        #echo "$used_port"
         if [ $used_port -eq $port ];
         then
-            echo "random generated port is already assigned"
+            #echo "random generated port is already assigned"
             assign_port
         fi
     done < "$confpath/$portfile"
-    echo "port $port is free"
+    #echo "port $port is free"
+    echo $port
 }
 
 
@@ -81,35 +83,103 @@ function random_unused_port() {
     ) | sort -n | uniq -u | shuf -n 1
 }
 
-function parse_dockerfile(){
+function parse_dockerfile_template(){
     # to do
     # parsa il Dockerfile alla ricerca della parola EXPOSE in modo da conoscere
     # quante e quali porte il container deve esporre
     # restituisce una stringa $ports=5432,8080,8433
-    ports=$(grep EXPOSE $templates_home/$1/Dockerfile)
+    
+    local ports_from_dockerfile
+    local ports_string_from_dockerfile
+    local element
+    
+    ports_string_from_dockerfile=$(grep EXPOSE $templates_home/$1/Dockerfile)
     
     # questa parte va portata fuori nella parte che si occuperà di generare
     # la stringa di parametri con cui avviare il container
-    ports=${ports:7}
-    IFS=',' read -r -a array <<< "$ports"
+    ports_string_from_dockerfile=${ports_string_from_dockerfile:7}
+    IFS=',' read -r -a array <<< "$ports_string_from_dockerfile"
     for element in "${array[@]}"
         do
-            echo "$element"
+            #echo "element = $element"
+            ports_from_dockerfile=$ports_from_dockerfile,$element
         done
-    
+    ports_from_dockerfile=${ports_from_dockerfile:1}
+    echo $ports_from_dockerfile
 }
 
-function parse_cockerfile(){
+function parse_dockerfile_box(){
+    # to do
+    # parsa il Dockerfile alla ricerca della parola EXPOSE in modo da conoscere
+    # quante e quali porte il container deve esporre
+    # restituisce una stringa $ports=5432,8080,8433
+    
+    local ports_from_dockerfile
+    local ports_string_from_dockerfile
+    local element
+    
+    ports_string_from_dockerfile=$(grep EXPOSE $1/Dockerfile)
+    
+    # questa parte va portata fuori nella parte che si occuperà di generare
+    # la stringa di parametri con cui avviare il container
+    ports_string_from_dockerfile=${ports_string_from_dockerfile:7}
+    IFS=',' read -r -a array <<< "$ports_string_from_dockerfile"
+    for element in "${array[@]}"
+        do
+            #echo "element = $element"
+            ports_from_dockerfile=$ports_from_dockerfile,$element
+        done
+    ports_from_dockerfile=${ports_from_dockerfile:1}
+    echo $ports_from_dockerfile
+}
+
+function parse_cockerfile_template(){
     # to do
     # parsa il Cockerfile alla ricerca di eventuali path da condividere 
     # col filesystem e da montare nel container
     # restituisce una stringa $paths=/path:/path/in/container;/path:/path/in/container
     # restituisce una stringa $ports=8080,8443
-    patti=$(sed -n '/<volumes>/{:a;n;/<volumes>/b;p;ba}' $templates_home/$1/Cockerfile)
-    ports=$(sed -n '/<ports>/{:a;n;/<ports>/b;p;ba}' $templates_home/$1/Cockerfile)
-
+    #
+    #$1 = template name
+    local cockerfile_path
+    cockerfile_path=$templates_home/$1
+    patti=$(get_paths_from_file $cockerfile_path)
+    #ports=$(get_used_ports_from_file $1)
     echo $patti
+    #echo $ports
+}
+
+function get_paths_from_file(){
+    local patti
+    patti=$(sed -n '/<volumes>/{:a;n;/<volumes>/b;p;ba}' $1/Cockerfile)
+    echo $patti
+}
+
+function get_used_ports_from_file(){
+    local ports
+    ports=$(sed -n '/<ports>/{:a;n;/<ports>/b;p;ba}' $1/Cockerfile)
     echo $ports
+}
+
+function parse_cockerfile_box(){
+    # to do
+    # parsa il Cockerfile alla ricerca di eventuali path da condividere 
+    # col filesystem e da montare nel container
+    # restituisce una stringa $paths=/path:/path/in/container;/path:/path/in/container
+    # restituisce una stringa $ports=8080,8443
+    #
+    #$1 = /path/to/box/
+    
+    local cockerfile_path
+    local patti
+    cockerfile_path=$1
+    #echo "cockerfile_path = $cockerfile_path"
+    #echo "cockerfile = $cockerfile_path/Cockerfile"
+    #patti=$(sed -n '/<volumes>/{:a;n;/<volumes>/b;p;ba}' $cockerfile_path/Cockerfile)
+    patti=$(get_paths_from_file $cockerfile_path)
+    #ports=$(get_used_ports_from_file $cockerfile_path)
+    echo $patti
+    #echo $ports
 }
 
 
@@ -221,10 +291,11 @@ function import_template(){
 
 function create_container(){
     # to do
+    # Parte dal dockerfile e dal cockerfile presenti nella "box" creata come copia da un template
     # si occupa della creazione del container, prendendo informazioni dal Dockerfile 
-    # per quanto riguarda eventuali porte da eporre 
+    # per quanto riguarda eventuali porte da esporre 
     # e dal Cockerfile per quanto riguarda cartelle da esporre
-    # inserisce una riga alla fine del Cockerfile <mapped-ports>45564,25670<mapped-ports>
+    # inserisce una riga alla fine del Cockerfile <mapped-ports>45564:8080,25670:8443<mapped-ports>
     # che contiene le porte della macchina host assegnate alle porte esposte dal container
     # in modo che in fase di rimozione, il sistema le possa rimuovere dal file ./conf/port.list
     # e renderle nuovamente disponibili
@@ -232,11 +303,37 @@ function create_container(){
     # per poterlo eventualmente rimuovere
     # $1 = container name, dato dal nome della box, incluso il random alla fine
     
-    #genera porte random
+    # parsing del dockerfile
+    local dockerfile_path=$boxes_home/$1
+    local cockerfile_path=$boxes_home/$1
+    #echo "dockerfile_path = $dockerfile_path"
+    #mappatura porte da esporre
+    # leggo le porte da esporre dal dockerfile
+    ports_to_export=$(parse_dockerfile_box $dockerfile_path)
+
+    #generazione porte random
+    #per ogni item della lista, genero una porta casuale e la associo alla porta da esporre 
+    IFS=',' read -r -a array <<< "$ports_to_export"
+    for element in "${array[@]}"
+        do
+            #echo "element = $element"
+            #ports_from_dockerfile=$ports_from_dockerfile,$element
+            random_port=$(assign_port)
+            #echo $random_port
+            #tento di generare la stringa per esporre la porta
+            #echo "-p $random_port:$element"
+            container_ports_string="$container_ports_string -p $random_port:$element"
+        done
+        echo $container_ports_string
     
     #genera stringa dei patti
+    # partial
+    paths_to_exports=$(parse_cockerfile_box $cockerfile_path)
     
+    echo "ports_to_export = $ports_to_export"
+    echo "paths_to_exports = $paths_to_exports"
     #build docker container
+    
     #sudo docker build . -t stocazzo
 
     #echo "<ports>$port_list<ports>" >> $boxes_home/$1/Cockerfile 
@@ -245,9 +342,6 @@ function create_container(){
     #run docker container
     #sudo docker run -d --name stafava stocazzo /bin/sleep 300
 
-    
-
-    sleep 1    
 }
 
 function start_container(){
@@ -288,4 +382,5 @@ boxes_home=/tmp
 #
 
 #parse_cockerfile template_01
-create_instance_from_template template_01
+#create_instance_from_template template_01
+create_container template_01_21514
